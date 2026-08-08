@@ -1,0 +1,1150 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+<title>Wholesale Order Book</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#22201c;
+    --paper:#f2ede3;
+    --card:#fffdf8;
+    --indigo:#2b3a55;
+    --indigo-dk:#1c2740;
+    --mustard:#dc9f2e;
+    --mustard-dk:#b57e19;
+    --thread:#b8ab8f;
+    --green:#3c7a5d;
+    --red:#b8503f;
+    --shadow: 0 2px 0 rgba(34,32,28,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      repeating-linear-gradient(0deg, rgba(34,32,28,0.025) 0px, rgba(34,32,28,0.025) 1px, transparent 1px, transparent 26px);
+    color:var(--ink);
+    font-family:'Work Sans', sans-serif;
+    min-height:100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1,h2,h3,.display{
+    font-family:'Barlow Condensed', sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+  }
+  body:not(.role-admin) .admin-only{ display:none !important; }
+
+  /* ---------- Login Screen ---------- */
+  #loginScreen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .loginCard{
+    background:var(--card); border-radius:18px; padding:34px 30px; max-width:380px; width:100%;
+    text-align:center; box-shadow:0 8px 28px rgba(34,32,28,0.15); border:1px solid rgba(34,32,28,0.08);
+  }
+  .loginTag{
+    width:44px;height:44px;border:3px solid var(--mustard);border-radius:9px;
+    margin:0 auto 14px; position:relative; transform:rotate(-8deg);
+  }
+  .loginTag::before{
+    content:'';width:9px;height:9px;border-radius:50%;background:var(--paper);
+    border:2px solid var(--mustard); position:absolute; top:-2px; left:-2px;
+  }
+  .loginCard h1{margin:0 0 4px; font-size:28px; color:var(--indigo-dk);}
+  .loginSub{margin:0 0 24px; font-size:13px; color:#8a8271;}
+  #roleButtons{display:flex; flex-direction:column; gap:12px;}
+  .roleBtn{
+    background:var(--indigo); color:#fff; border:none; border-radius:12px; padding:16px 14px;
+    font-size:16px; font-weight:700; cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:3px;
+  }
+  .roleBtn span{font-size:12px; font-weight:400; opacity:0.8; text-transform:none; letter-spacing:0;}
+  #staffLoginBtn{background:var(--green);}
+  #pinBox{display:none; text-align:left;}
+  #pinBox label{font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#6b6455; font-weight:600; display:block; margin-bottom:6px;}
+  #pinInput{
+    width:100%; border:1.5px solid var(--thread); border-radius:8px; padding:12px 14px; font-size:20px;
+    letter-spacing:0.3em; text-align:center; font-family:inherit;
+  }
+  #pinInput:focus{outline:2px solid var(--mustard); border-color:var(--mustard);}
+  #pinError{color:var(--red); font-size:12.5px; min-height:18px; margin-top:6px;}
+  .pinBtns{display:flex; gap:10px; margin-top:6px;}
+  .pinBtns button{flex:1; border:none; border-radius:8px; padding:12px; font-weight:700; font-size:14px; cursor:pointer;}
+  #pinBackBtn{background:transparent; border:1.5px solid var(--thread) !important; color:var(--ink);}
+  #pinSubmitBtn{background:var(--indigo); color:#fff;}
+
+  /* ---------- Header ---------- */
+  header{
+    background:var(--indigo);
+    color:#fff;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    z-index:30;
+    box-shadow:0 3px 10px rgba(0,0,0,0.18);
+    gap:10px; flex-wrap:wrap;
+  }
+  header .brand{display:flex; align-items:center; gap:10px;}
+  header .brand .tagmark{
+    width:30px;height:30px;border:2.5px solid var(--mustard);border-radius:6px;
+    position:relative; transform:rotate(-8deg);
+    display:flex; align-items:center; justify-content:center;
+  }
+  header .brand .tagmark::before{
+    content:'';width:6px;height:6px;border-radius:50%;background:var(--indigo-dk);
+    border:1.5px solid var(--mustard); position:absolute; top:-1px; left:-1px;
+  }
+  header h1{margin:0; font-size:26px; font-weight:800; line-height:1;}
+  header .sub{font-size:11px; letter-spacing:0.08em; color:#c9d1e0; text-transform:uppercase; margin-top:2px;}
+  .headerRight{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .roleBadge{
+    font-size:11px; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;
+    background:rgba(255,255,255,0.12); color:#e7e2d6; padding:6px 10px; border-radius:20px;
+  }
+  .ghostBtn{
+    background:transparent; border:1.5px solid rgba(255,255,255,0.35); color:#fff; border-radius:9px;
+    padding:9px 12px; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  #cartBtn{
+    background:var(--mustard); color:var(--indigo-dk); border:none; border-radius:10px;
+    padding:10px 16px; font-weight:700; font-size:15px; display:flex; align-items:center; gap:8px;
+    cursor:pointer; position:relative;
+  }
+  #cartBtn .count{
+    background:var(--indigo-dk); color:#fff; border-radius:20px; min-width:22px; height:22px;
+    display:flex; align-items:center; justify-content:center; font-size:12px; padding:0 6px;
+  }
+
+  main{max-width:1100px; margin:0 auto; padding:18px 16px 90px;}
+
+  /* ---------- Add product ---------- */
+  .panel{
+    background:var(--card); border-radius:14px; padding:16px; box-shadow:var(--shadow);
+    border:1px solid rgba(34,32,28,0.08);
+  }
+  #addForm{margin-bottom:22px;}
+  #addForm h2{margin:0 0 12px; font-size:20px; color:var(--indigo-dk);}
+  .addRow{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field label{font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:#6b6455; font-weight:600;}
+  .field input[type=text]{
+    border:1.5px solid var(--thread); border-radius:8px; padding:10px 12px; font-size:15px;
+    font-family:inherit; background:#fff; min-width:130px;
+  }
+  .field input[type=text]:focus{outline:2px solid var(--mustard); border-color:var(--mustard);}
+  #photoLabel{
+    border:2px dashed var(--thread); border-radius:8px; width:84px; height:84px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden;
+    background:#fbf9f4; flex-shrink:0; text-align:center;
+  }
+  #photoLabel img{width:100%; height:100%; object-fit:cover;}
+  #photoLabel span{font-size:10px; color:#8a8271; padding:4px;}
+  #photoInput{display:none;}
+  #addBtn{
+    background:var(--indigo); color:#fff; border:none; border-radius:8px; padding:11px 22px;
+    font-weight:700; font-size:15px; cursor:pointer; height:44px;
+  }
+  #addBtn:disabled{opacity:0.45; cursor:not-allowed;}
+  #cancelEditBtn{
+    display:none; background:transparent; border:1.5px solid var(--red); color:var(--red); border-radius:8px;
+    padding:11px 18px; font-weight:700; font-size:14px; cursor:pointer; height:44px;
+  }
+  .sizeFieldWrap{display:flex; flex-direction:column; gap:5px;}
+  .sizePicker{display:flex; gap:6px; flex-wrap:wrap;}
+  .sizeChip{
+    position:relative; border:1.5px solid var(--thread); border-radius:7px; background:#fbf9f4;
+    padding:0; cursor:pointer; user-select:none;
+  }
+  .sizeChip input{position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer;}
+  .sizeChip span{
+    display:block; padding:9px 12px; font-size:13px; font-weight:700; color:var(--indigo); pointer-events:none;
+  }
+  .sizeChip.checked{border-color:var(--mustard-dk); background:var(--mustard); border-style:solid;}
+  .sizeChip.checked span{color:var(--indigo-dk);}
+
+  /* ---------- Filters ---------- */
+  #filterRow{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  #filterRow select{
+    border:1.5px solid var(--thread); border-radius:8px; padding:9px 12px; font-size:13.5px;
+    font-family:inherit; background:#fff; color:var(--ink); font-weight:600;
+  }
+
+  /* ---------- Catalog ---------- */
+  #catalogHeading{display:flex; align-items:center; justify-content:space-between; margin:4px 0 12px;}
+  #catalogHeading h2{margin:0; font-size:20px; color:var(--indigo-dk);}
+  #emptyState{
+    text-align:center; padding:50px 20px; color:#8a8271;
+  }
+  #emptyState .big{font-size:44px; display:block; margin-bottom:8px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px,1fr)); gap:16px;}
+  .card{
+    background:var(--card); border-radius:14px; overflow:hidden; box-shadow:var(--shadow);
+    border:1px solid rgba(34,32,28,0.08); display:flex; flex-direction:column;
+  }
+  .card .photoWrap{position:relative; aspect-ratio:1/1; background:#e9e3d5;}
+  .card .photoWrap img{width:100%; height:100%; object-fit:cover; display:block;}
+  .card .delBtn, .card .editBtn{
+    position:absolute; top:8px; background:rgba(34,32,28,0.55); color:#fff; border:none;
+    width:28px; height:28px; border-radius:50%; font-size:14px; cursor:pointer; line-height:1;
+  }
+  .card .delBtn{right:8px;}
+  .card .editBtn{right:42px; background:rgba(220,159,46,0.9); color:var(--indigo-dk);}
+  .card .meta{padding:10px 12px 4px;}
+  .card .code{font-family:'Barlow Condensed',sans-serif; font-weight:800; font-size:19px; color:var(--indigo-dk); letter-spacing:0.02em;}
+  .card .color{font-size:13px; color:#6b6455; text-transform:capitalize; margin-top:-2px;}
+  .card .wsp{font-size:13.5px; color:var(--green); font-weight:700; margin-top:3px;}
+  .tagRow{display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;}
+  .tagBadge{
+    font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.03em;
+    background:var(--indigo); color:#fff; padding:3px 8px; border-radius:12px;
+  }
+  .tagBadge.cat{background:#e9e3d5; color:var(--indigo-dk);}
+  .sizeGrid{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:8px 12px;}
+  .sizeTag{
+    position:relative; border:1.5px dashed var(--thread); border-radius:6px; background:#fbf9f4;
+    padding:6px 4px 5px; text-align:center;
+  }
+  .sizeTag .lbl{font-size:11px; font-weight:700; color:var(--indigo); letter-spacing:0.02em;}
+  .sizeTag input{
+    width:100%; border:none; background:transparent; text-align:center; font-size:16px;
+    font-weight:700; color:var(--ink); font-family:inherit; padding:2px 0 0; -moz-appearance:textfield;
+  }
+  .sizeTag input::-webkit-outer-spin-button,.sizeTag input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .sizeTag input:focus{outline:none;}
+  .sizeTag.active{border-style:solid; border-color:var(--mustard-dk); background:#fbf1dc;}
+  .cardFoot{padding:10px 12px 14px;}
+  .addOrderBtn{
+    width:100%; background:var(--green); color:#fff; border:none; border-radius:8px;
+    padding:10px; font-weight:700; font-size:14px; cursor:pointer;
+  }
+  .addOrderBtn:active{transform:scale(0.98);}
+  .totalPill{font-size:11px; color:#6b6455; text-align:center; margin-top:6px;}
+
+  /* ---------- Order Drawer ---------- */
+  #overlay{
+    position:fixed; inset:0; background:rgba(28,26,22,0.4); z-index:40; opacity:0; pointer-events:none;
+    transition:opacity 0.2s;
+  }
+  #overlay.show{opacity:1; pointer-events:auto;}
+  #drawer{
+    position:fixed; top:0; right:0; height:100%; width:min(420px,92vw); background:var(--paper);
+    z-index:50; transform:translateX(105%); transition:transform 0.25s ease; display:flex; flex-direction:column;
+    box-shadow:-6px 0 20px rgba(0,0,0,0.2);
+  }
+  #drawer.show{transform:translateX(0);}
+  #drawer .dHead{background:var(--indigo); color:#fff; padding:16px 18px; display:flex; align-items:center; justify-content:space-between;}
+  #drawer .dHead h2{margin:0; font-size:22px;}
+  #closeDrawer{background:none; border:none; color:#fff; font-size:22px; cursor:pointer;}
+  #orderMeta{padding:14px 18px 0; display:flex; gap:8px; flex-wrap:wrap;}
+  #orderMeta input, #orderMeta select{
+    flex:1; min-width:180px; border:1.5px solid var(--thread); border-radius:8px; padding:9px 11px; font-size:14px; font-family:inherit; background:#fff;
+  }
+  #savePartyBtn{background:var(--mustard); color:var(--indigo-dk); border:none; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; white-space:nowrap;}
+  #savePartyBtn:active{transform:scale(.98);}
+  #orderList{flex:1; overflow-y:auto; padding:12px 18px;}
+  .orderLine{
+    background:var(--card); border-radius:10px; padding:10px 12px; margin-bottom:10px; border:1px solid rgba(34,32,28,0.08);
+    display:flex; gap:10px; align-items:center;
+  }
+  .orderLine img{width:46px; height:46px; border-radius:6px; object-fit:cover; flex-shrink:0; background:#e9e3d5;}
+  .orderLine .info{flex:1; min-width:0;}
+  .orderLine .info .top{font-weight:700; font-size:14px; color:var(--indigo-dk);}
+  .orderLine .info .sizes{font-size:12.5px; color:#6b6455; margin-top:2px;}
+  .orderLine .info .amt{font-size:12.5px; color:var(--green); font-weight:700; margin-top:2px;}
+  .orderLine .rmBtn{background:none; border:none; color:var(--red); font-size:18px; cursor:pointer; padding:4px;}
+  #noOrder{text-align:center; color:#8a8271; padding:40px 10px; font-size:14px;}
+  #drawerFoot{padding:14px 18px 20px; border-top:1px solid rgba(34,32,28,0.1); background:var(--card);}
+  #totalsRow{display:flex; justify-content:space-between; font-size:14px; margin-bottom:12px; font-weight:600; color:var(--indigo-dk);}
+  .actionBtns{display:flex; gap:10px;}
+  .actionBtns button{
+    flex:1; border:none; border-radius:9px; padding:12px 8px; font-weight:700; font-size:13.5px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  #excelBtn{background:var(--indigo); color:#fff;}
+  #waBtn{background:#25D366; color:#fff;}
+  #clearBtn{background:transparent; color:var(--red); border:1.5px solid var(--red) !important; margin-top:8px; width:100%;}
+
+  @media (max-width:520px){
+    header h1{font-size:21px;}
+    .addRow{gap:8px;}
+    .field input[type=text]{min-width:100px;}
+  }
+
+#cloudStatus{font-size:10.5px;font-weight:700;padding:5px 8px;border-radius:12px;background:rgba(255,255,255,.12);color:#e7e2d6}
+#cloudStatus.offline{color:#ffd6cc;background:rgba(184,80,63,.18)}
+
+.loginField{margin:0 0 10px;text-align:left}
+.loginField input{width:100%;border:1.5px solid var(--thread);border-radius:8px;padding:12px 14px;font-size:15px;font-family:inherit;background:#fff}
+.loginField input:focus{outline:2px solid var(--mustard);border-color:var(--mustard)}
+#loginError{color:var(--red);font-size:12.5px;min-height:20px;margin:5px 0;text-align:left}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="loginCard">
+    <div class="loginTag"></div>
+    <h1>Order Book</h1>
+    <p class="loginSub">Supabase Login</p>
+
+    <div id="cloudLoginBox">
+      <div class="field loginField">
+        <label for="loginEmail">Email</label>
+        <input type="email" id="loginEmail" placeholder="your@email.com" autocomplete="username">
+      </div>
+      <div class="field loginField">
+        <label for="loginPassword">Password</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <div id="loginError"></div>
+      <button id="cloudLoginBtn" class="roleBtn" type="button">☁️ Login <span>Admin / Order Taking account</span></button>
+      
+    </div>
+  </div>
+</div>
+
+<div id="appRoot" style="display:none;">
+
+<header>
+  <div class="brand">
+    <div class="tagmark"></div>
+    <div>
+      <h1>Order Book</h1>
+      <div class="sub">Wholesale Sample Catalog</div>
+    </div>
+  </div>
+  <div class="headerRight">
+    <span id="roleBadge" class="roleBadge"></span><span id="cloudStatus">☁ Cloud</span>
+    
+    <button id="switchUserBtn" class="ghostBtn" type="button">⇄ Logout</button>
+    <button id="cartBtn" type="button">🧾 Order <span class="count" id="cartCount">0</span></button>
+  </div>
+</header>
+
+<main>
+  <form id="addForm" class="panel admin-only" autocomplete="off">
+    <h2 id="formHeading">Naya Sample Add Karein</h2>
+    <div class="addRow">
+      <label id="photoLabel" for="photoInput">
+        <span>Photo<br>Upload</span>
+      </label>
+      <input type="file" id="photoInput" accept="image/*" capture="environment">
+      <div class="field">
+        <label for="codeInput">Item No / Code</label>
+        <input type="text" id="codeInput" placeholder="e.g. 1254" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label for="colorInput">Colour</label>
+        <input type="text" id="colorInput" placeholder="e.g. Green">
+      </div>
+      <div class="field">
+        <label for="brandInput">Brand</label>
+        <input type="text" id="brandInput" list="brandList" placeholder="e.g. Levis">
+        <datalist id="brandList"></datalist>
+      </div>
+      <div class="field">
+        <label for="categoryInput">Category</label>
+        <input type="text" id="categoryInput" list="categoryList" placeholder="e.g. Shirts">
+        <datalist id="categoryList"></datalist>
+      </div>
+      <div class="field">
+        <label for="wspInput">WSP (₹)</label>
+        <input type="text" id="wspInput" placeholder="e.g. 350" inputmode="decimal" style="min-width:90px;">
+      </div>
+      <div class="field">
+        <label for="mrpInput">MRP (₹)</label>
+        <input type="text" id="mrpInput" placeholder="e.g. 999" inputmode="decimal" style="min-width:90px;">
+      </div>
+      <div class="sizeFieldWrap">
+        <label>Available Sizes</label>
+        <div class="sizePicker" id="sizePicker">
+          <!-- chips injected by JS -->
+        </div>
+      </div>
+      <button type="submit" id="addBtn" disabled>+ Add Sample</button>
+      <button type="button" id="cancelEditBtn">Cancel Edit</button>
+    </div>
+  </form>
+
+  <section id="bulkUploadPanel" class="panel admin-only" style="margin-bottom:22px;">
+    <h2 style="margin:0 0 12px;font-size:20px;color:var(--indigo-dk);">Bulk Photo Upload</h2>
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:10px;">
+      <div class="field">
+        <label for="bulkBrandInput">Brand — sabhi photos ke liye same</label>
+        <input type="text" id="bulkBrandInput" list="brandList" placeholder="e.g. Levis">
+      </div>
+      <div class="field">
+        <label for="bulkCategoryInput">Category — sabhi photos ke liye same</label>
+        <input type="text" id="bulkCategoryInput" list="categoryList" placeholder="e.g. Shirts">
+      </div>
+      <div class="field">
+        <label for="bulkMrpInput">MRP (₹) — sabhi photos ke liye same</label>
+        <input type="text" id="bulkMrpInput" placeholder="e.g. 999" inputmode="decimal" style="min-width:100px;">
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <label for="bulkPhotoInput" style="border:2px dashed var(--thread);border-radius:8px;padding:12px 16px;background:#fbf9f4;cursor:pointer;font-weight:700;color:var(--indigo);">📷 Multiple Photos Select Karein</label>
+      <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none;">
+      <span id="bulkUploadStatus" style="font-size:13px;color:#6b6455;"></span>
+    </div>
+    <div style="font-size:12px;color:#8a8271;margin-top:8px;">Pehle Brand, Category aur MRP bhar dein. Uske baad jitne photos select karenge, sabhi samples mein yehi details automatically save hongi. Item No photo ke filename se banega.</div>
+  </section>
+
+  <div id="catalogHeading">
+    <h2>Catalog</h2>
+  </div>
+  <div id="filterRow">
+    <select id="brandFilter"><option value="all">Sabhi Brands</option></select>
+    <select id="categoryFilter"><option value="all">Sabhi Categories</option></select>
+  </div>
+  <div id="catalogWrap">
+    <div id="emptyState">
+      <span class="big">🧵</span>
+      Abhi koi sample add nahi hua.<br>Upar se photo, code aur colour daalke shuru karein.
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</main>
+
+<div id="overlay"></div>
+<div id="drawer">
+  <div class="dHead">
+    <h2>Order</h2>
+    <button id="closeDrawer">✕</button>
+  </div>
+  <div id="orderMeta">
+    <input type="text" id="shopName" placeholder="Shop / Party ka naam (optional)">
+  </div>
+  <div id="orderList"></div>
+  <div id="drawerFoot">
+    <div id="totalsRow"><span id="totalLines">0 items</span><span id="totalPieces">0 pcs</span></div>
+    <div class="actionBtns">
+      <button id="excelBtn">⬇ <span>Excel</span></button>
+      <button id="waBtn">📲 <span>WhatsApp</span></button>
+    </div>
+    <button id="clearBtn">Order Clear Karein</button>
+  </div>
+</div>
+
+</div><!-- /appRoot -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4"></script>
+<script>
+const SUPABASE_URL = "https://yqvmzeukhytamripvdxf.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Q9rpUoI7V5dT-L7j3V7EKQ_4Vxpnz1G";
+let supabaseClient = null;
+let cloudEnabled = false;
+
+try {
+  if (window.supabase && typeof window.supabase.createClient === "function") {
+    supabaseClient = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_PUBLISHABLE_KEY,
+      { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+    );
+    cloudEnabled = true;
+  } else {
+    console.error("Supabase JS library did not load.");
+  }
+} catch (err) {
+  console.error("Supabase initialization failed:", err);
+}
+</script>
+<script>
+const SIZES = ['S','M','L','XL','XXL','3XL'];
+let products = [];
+let order = [];
+let pendingPhotoDataUrl = null;
+let editingId = null;
+let currentRole = null;
+let partyNames = [];
+
+// ---------- Storage helpers ----------
+const LOCAL_PREFIX = 'wholesale_order_book:';
+function localGet(key){ try{const raw=localStorage.getItem(LOCAL_PREFIX+key); return raw==null?null:JSON.parse(raw);}catch(e){return null;} }
+function localSet(key,val){ try{localStorage.setItem(LOCAL_PREFIX+key,JSON.stringify(val));}catch(e){} }
+function localDelete(key){ try{localStorage.removeItem(LOCAL_PREFIX+key);}catch(e){} }
+
+function productToRow(p){
+  return {id:p.id,code:p.code||'',color:p.color||'',brand:p.brand||'',category:p.category||'',
+    wsp:Number(p.wsp||0),mrp:Number(p.mrp||0),photo:p.photo||'',
+    available_sizes:p.availableSizes||SIZES,created_at:p.createdAt||Date.now()};
+}
+function rowToProduct(r){
+  return {id:r.id,code:r.code||'',color:r.color||'',brand:r.brand||'',category:r.category||'',
+    wsp:Number(r.wsp||0),mrp:Number(r.mrp||0),photo:r.photo||'',
+    availableSizes:r.available_sizes||SIZES,createdAt:r.created_at||Date.now()};
+}
+async function storageGet(key){
+  if(cloudEnabled && key.startsWith('product:')){
+    try{const {data,error}=await supabaseClient.from('products').select('*').eq('id',key.slice(8)).maybeSingle();
+      if(error)throw error; return data?rowToProduct(data):null;}catch(e){console.error('Supabase read failed',e);}
+  }
+  return localGet(key);
+}
+async function storageSet(key,val){
+  if(cloudEnabled && key.startsWith('product:')){
+    try{const {error}=await supabaseClient.from('products').upsert(productToRow(val)); if(error)throw error; return;}
+    catch(e){console.error('Supabase save failed',e);}
+  }
+  localSet(key,val);
+}
+async function storageDelete(key){
+  if(cloudEnabled && key.startsWith('product:')){
+    try{const {error}=await supabaseClient.from('products').delete().eq('id',key.slice(8)); if(error)throw error; return;}
+    catch(e){console.error('Supabase delete failed',e);}
+  }
+  localDelete(key);
+}
+async function storageListKeys(prefix){
+  if(cloudEnabled && prefix==='product:'){
+    try{const {data,error}=await supabaseClient.from('products').select('id'); if(error)throw error;
+      return (data||[]).map(x=>'product:'+x.id);}catch(e){console.error('Supabase list failed',e);}
+  }
+  const keys=[]; for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);
+    if(k&&k.startsWith(LOCAL_PREFIX+prefix))keys.push(k.slice(LOCAL_PREFIX.length));} return keys;
+}
+async function getCurrentUserProfile(){
+  if(!cloudEnabled)return null;
+  const {data:{user},error:authError}=await supabaseClient.auth.getUser();
+  if(authError||!user)return null;
+  const {data,error}=await supabaseClient.from('profiles').select('role').eq('id',user.id).maybeSingle();
+  if(error){
+    console.error('Profile read failed',error);
+    throw new Error('Profile read failed: ' + (error.message || error.code || 'unknown error'));
+  }
+  return {user,role:data?.role||null};
+}
+function startCloudProductSync(){
+  if(!cloudEnabled)return;
+  supabaseClient.channel('products-live').on('postgres_changes',
+    {event:'*',schema:'public',table:'products'},async()=>{
+      const keys=await storageListKeys('product:'); const loaded=[];
+      for(const k of keys){const p=await storageGet(k);if(p)loaded.push(p);}
+      loaded.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)); products=loaded;
+      populateFilters();renderCatalog();
+    }).subscribe();
+}
+// ---------- Login / Roles ----------
+function showAppForRole(role){
+  currentRole=role; document.body.classList.toggle('role-admin',role==='admin');
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('appRoot').style.display='block';
+  document.getElementById('roleBadge').textContent=role==='admin'?'🔐 Admin':'🧾 Order Taking';
+  updateCloudStatus();
+}
+function hideAppForLogin(){
+  currentRole=null;document.body.classList.remove('role-admin');
+  document.getElementById('appRoot').style.display='none';
+  document.getElementById('loginScreen').style.display='flex';
+}
+async function cloudLogin(){
+  const email=document.getElementById('loginEmail').value.trim();
+  const password=document.getElementById('loginPassword').value;
+  const err=document.getElementById('loginError');
+  err.textContent='';
+
+  if(!email || !password){
+    err.textContent='Email aur password daalein.';
+    return;
+  }
+
+  // Use the Supabase Auth REST endpoint directly. This avoids masking
+  // server/auth errors as a generic "Failed to fetch" from the SDK.
+  try{
+    const response = await fetch(
+      SUPABASE_URL + '/auth/v1/token?grant_type=password',
+      {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'apikey':SUPABASE_PUBLISHABLE_KEY
+        },
+        body:JSON.stringify({email,password})
+      }
+    );
+
+    const raw = await response.text();
+    let result = {};
+    try { result = raw ? JSON.parse(raw) : {}; } catch(_){}
+
+    if(!response.ok){
+      const detail = result.msg || result.message || result.error_description ||
+                     result.error || ('HTTP ' + response.status);
+      err.textContent='Login failed: ' + detail;
+      console.error('Supabase Auth HTTP error', response.status, result);
+      return;
+    }
+
+    if(!result.access_token || !result.refresh_token){
+      err.textContent='Login response incomplete. Supabase Auth ne session nahi diya.';
+      console.error('Incomplete auth response', result);
+      return;
+    }
+
+    // Give the Supabase client the valid session returned by Auth.
+    const {error:setError} = await supabaseClient.auth.setSession({
+      access_token: result.access_token,
+      refresh_token: result.refresh_token
+    });
+    if(setError){
+      err.textContent='Session set nahi hua: ' + setError.message;
+      return;
+    }
+
+    // Read role directly using the authenticated REST request.
+    const profileResponse = await fetch(
+      SUPABASE_URL + '/rest/v1/profiles?select=role&id=eq.' + encodeURIComponent(result.user.id),
+      {
+        method:'GET',
+        headers:{
+          'apikey':SUPABASE_PUBLISHABLE_KEY,
+          'Authorization':'Bearer ' + result.access_token
+        }
+      }
+    );
+
+    const profileRaw = await profileResponse.text();
+    let profileRows=[];
+    try { profileRows = profileRaw ? JSON.parse(profileRaw) : []; } catch(_){}
+
+    if(!profileResponse.ok){
+      err.textContent='Login successful, but role read failed: HTTP ' + profileResponse.status;
+      console.error('Profile HTTP error', profileResponse.status, profileRows);
+      return;
+    }
+
+    const role = profileRows.length && profileRows[0].role === 'admin' ? 'admin' : 'staff';
+
+    showAppForRole(role);
+
+    // Catalog loading should never turn a successful login into a login error.
+    try{
+      await init();
+    }catch(initError){
+      console.error('Catalog initialization error:', initError);
+    }
+  }catch(e){
+    console.error('Network/Auth fetch error:',e);
+    err.textContent='Network error: ' + (e.message || 'Supabase se connection nahi ho pa raha.');
+  }
+}
+
+document.getElementById('cloudLoginBtn').addEventListener('click',cloudLogin);
+document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')cloudLogin();});
+showAppForRole('staff');
+});
+document.getElementById('switchUserBtn').addEventListener('click',async()=>{
+  try{if(cloudEnabled&&supabaseClient)await supabaseClient.auth.signOut();}catch(e){}
+  hideAppForLogin();closeDrawer();
+});
+
+// ---------- Size Picker (for Add Sample form) ----------
+function buildSizePicker(){
+  const wrap = document.getElementById('sizePicker');
+  wrap.innerHTML = SIZES.map(s=>`
+    <label class="sizeChip checked" data-chip="${s}">
+      <input type="checkbox" value="${s}" checked>
+      <span>${s}</span>
+    </label>
+  `).join('');
+}
+buildSizePicker();
+
+document.getElementById('sizePicker').addEventListener('change', (e)=>{
+  if(e.target.matches('input[type=checkbox]')){
+    const chip = e.target.closest('.sizeChip');
+    chip.classList.toggle('checked', e.target.checked);
+    checkAddBtn();
+  }
+});
+
+function getSelectedSizes(){
+  return Array.from(document.querySelectorAll('#sizePicker input:checked')).map(i=>i.value);
+}
+function resetSizePicker(){
+  document.querySelectorAll('#sizePicker input').forEach(i=>{ i.checked = true; i.closest('.sizeChip').classList.add('checked'); });
+}
+
+// ---------- Init ----------
+async function init(){
+  const keys = await storageListKeys('product:');
+  const loaded = [];
+  for(const k of keys){
+    const p = await storageGet(k);
+    if(p) loaded.push(p);
+  }
+  loaded.sort((a,b)=> (a.createdAt||0)-(b.createdAt||0));
+  products = loaded;
+
+  const savedOrder = await storageGet('current_order');
+  order = savedOrder || [];
+
+  const savedShop = await storageGet('shop_name');
+  if(savedShop) document.getElementById('shopName').value = savedShop;
+
+  partyNames = (await storageGet('party_names')) || [];
+  populatePartySelect();
+
+  populateFilters();
+  renderCatalog();
+  renderOrder();
+}
+init();
+
+// ---------- Bulk Photo Upload ----------
+document.getElementById('bulkPhotoInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+  const status = document.getElementById('bulkUploadStatus');
+  status.textContent = files.length + ' photos process ho rahe hain...';
+  let added = 0;
+
+  for(const file of files){
+    try{
+      const dataUrl = await resizePhotoFile(file);
+      const rawName = file.name.replace(/\.[^.]+$/, '').trim();
+      const code = rawName || ('BULK-' + Date.now() + '-' + added);
+      const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+      const bulkBrand = document.getElementById('bulkBrandInput').value.trim();
+      const bulkCategory = document.getElementById('bulkCategoryInput').value.trim();
+      const bulkMrp = parseFloat(document.getElementById('bulkMrpInput').value) || 0;
+      const product = {
+        id, code, color:'', brand:bulkBrand, category:bulkCategory, wsp:0, mrp:bulkMrp,
+        photo:dataUrl, availableSizes:[...SIZES], createdAt:Date.now()
+      };
+      await storageSet('product:'+id, product);
+      products.push(product);
+      added++;
+      status.textContent = added + '/' + files.length + ' photos uploaded...';
+    }catch(err){
+      console.error('Bulk photo failed', file.name, err);
+    }
+  }
+
+  populateFilters();
+  renderCatalog();
+  e.target.value='';
+  status.textContent = '✓ ' + added + ' photos successfully add ho gaye. Edit karke details bhar sakte hain.';
+});
+
+function resizePhotoFile(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev=>{
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = ()=>{
+        const maxW = 500;
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg',0.72));
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// ---------- Photo handling ----------
+document.getElementById('photoInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const maxW = 500;
+      const scale = Math.min(1, maxW/img.width);
+      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      pendingPhotoDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      document.getElementById('photoLabel').innerHTML = `<img src="${pendingPhotoDataUrl}">`;
+      checkAddBtn();
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function checkAddBtn(){
+  const code = document.getElementById('codeInput').value.trim();
+  const hasSize = getSelectedSizes().length > 0;
+  document.getElementById('addBtn').disabled = !(pendingPhotoDataUrl && code && hasSize);
+}
+document.getElementById('codeInput').addEventListener('input', checkAddBtn);
+
+document.getElementById('addForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const code = document.getElementById('codeInput').value.trim();
+  const color = document.getElementById('colorInput').value.trim();
+  const brand = document.getElementById('brandInput').value.trim();
+  const category = document.getElementById('categoryInput').value.trim();
+  const wsp = parseFloat(document.getElementById('wspInput').value) || 0;
+  const availableSizes = getSelectedSizes();
+  if(!code || !pendingPhotoDataUrl || availableSizes.length===0) return;
+
+  if(editingId){
+    const idx = products.findIndex(p=>p.id===editingId);
+    if(idx>-1){
+      const updated = { ...products[idx], code, color, brand, category, wsp, mrp, photo: pendingPhotoDataUrl, availableSizes };
+      products[idx] = updated;
+      await storageSet('product:'+editingId, updated);
+    }
+  } else {
+    const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+    const product = { id, code, color, brand, category, wsp, mrp, photo: pendingPhotoDataUrl, availableSizes, createdAt: Date.now() };
+    await storageSet('product:'+id, product);
+    products.push(product);
+  }
+  populateFilters();
+  renderCatalog();
+  resetAddForm();
+});
+
+function resetAddForm(){
+  editingId = null;
+  document.getElementById('codeInput').value='';
+  document.getElementById('colorInput').value='';
+  document.getElementById('brandInput').value='';
+  document.getElementById('categoryInput').value='';
+  document.getElementById('wspInput').value='';
+  document.getElementById('photoLabel').innerHTML = '<span>Photo<br>Upload</span>';
+  document.getElementById('photoInput').value='';
+  pendingPhotoDataUrl = null;
+  resetSizePicker();
+  document.getElementById('formHeading').textContent = 'Naya Sample Add Karein';
+  document.getElementById('addBtn').textContent = '+ Add Sample';
+  document.getElementById('cancelEditBtn').style.display='none';
+  checkAddBtn();
+}
+
+function openEditForm(p){
+  editingId = p.id;
+  document.getElementById('codeInput').value = p.code || '';
+  document.getElementById('colorInput').value = p.color || '';
+  document.getElementById('brandInput').value = p.brand || '';
+  document.getElementById('categoryInput').value = p.category || '';
+  document.getElementById('wspInput').value = p.wsp || '';
+  pendingPhotoDataUrl = p.photo;
+  document.getElementById('photoLabel').innerHTML = `<img src="${p.photo}">`;
+  const sel = p.availableSizes && p.availableSizes.length ? p.availableSizes : SIZES;
+  document.querySelectorAll('#sizePicker input').forEach(inp=>{
+    const checked = sel.includes(inp.value);
+    inp.checked = checked;
+    inp.closest('.sizeChip').classList.toggle('checked', checked);
+  });
+  document.getElementById('formHeading').textContent = 'Sample Edit Karein';
+  document.getElementById('addBtn').textContent = 'Update Sample';
+  document.getElementById('cancelEditBtn').style.display='inline-block';
+  checkAddBtn();
+  document.getElementById('addForm').scrollIntoView({behavior:'smooth', block:'start'});
+}
+document.getElementById('cancelEditBtn').addEventListener('click', resetAddForm);
+
+// ---------- Filters ----------
+function populateFilters(){
+  const brandSel = document.getElementById('brandFilter');
+  const catSel = document.getElementById('categoryFilter');
+  const curBrand = brandSel.value || 'all';
+  const curCat = catSel.value || 'all';
+  const brands = [...new Set(products.map(p=>p.brand).filter(Boolean))].sort();
+  const cats = [...new Set(products.map(p=>p.category).filter(Boolean))].sort();
+  brandSel.innerHTML = '<option value="all">Sabhi Brands</option>' + brands.map(b=>`<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('');
+  catSel.innerHTML = '<option value="all">Sabhi Categories</option>' + cats.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  brandSel.value = brands.includes(curBrand) ? curBrand : 'all';
+  catSel.value = cats.includes(curCat) ? curCat : 'all';
+
+  document.getElementById('brandList').innerHTML = brands.map(b=>`<option value="${escapeHtml(b)}">`).join('');
+  document.getElementById('categoryList').innerHTML = cats.map(c=>`<option value="${escapeHtml(c)}">`).join('');
+}
+document.getElementById('brandFilter').addEventListener('change', renderCatalog);
+document.getElementById('categoryFilter').addEventListener('change', renderCatalog);
+
+// ---------- Render Catalog ----------
+function renderCatalog(){
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('emptyState');
+  const filterRow = document.getElementById('filterRow');
+  if(products.length===0){
+    empty.style.display='block'; grid.style.display='none'; filterRow.style.display='none';
+    return;
+  }
+  filterRow.style.display='flex';
+  const bf = document.getElementById('brandFilter').value;
+  const cf = document.getElementById('categoryFilter').value;
+  const filtered = products.filter(p => (bf==='all'||p.brand===bf) && (cf==='all'||p.category===cf));
+
+  empty.style.display='none'; grid.style.display='grid';
+  if(filtered.length===0){
+    grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:30px; color:#8a8271;">Is filter se koi sample nahi mila.</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(p=>`
+    <div class="card" data-id="${p.id}">
+      <div class="photoWrap">
+        <img src="${p.photo}" alt="${p.code}">
+        <button class="editBtn admin-only" data-edit="${p.id}" title="Edit sample">✎</button>
+        <button class="delBtn admin-only" data-del="${p.id}" title="Remove sample">✕</button>
+      </div>
+      <div class="meta">
+        <div class="code">${escapeHtml(p.code)}</div>
+        <div class="color">${escapeHtml(p.color||'—')}</div>
+        ${p.wsp ? `<div class="wsp">WSP: ₹${p.wsp}</div>` : ''}
+        ${p.mrp ? `<div style="font-size:13px;color:var(--red);font-weight:700;margin-top:2px;">MRP: ₹${p.mrp}</div>` : ''}
+        ${(p.brand || p.category) ? `<div class="tagRow">${p.brand?`<span class="tagBadge">${escapeHtml(p.brand)}</span>`:''}${p.category?`<span class="tagBadge cat">${escapeHtml(p.category)}</span>`:''}</div>` : ''}
+      </div>
+      <div class="sizeGrid">
+        ${(p.availableSizes && p.availableSizes.length ? p.availableSizes : SIZES).map(s=>`
+          <div class="sizeTag" data-size="${s}">
+            <div class="lbl">${s}</div>
+            <input type="number" min="0" inputmode="numeric" value="" placeholder="0" data-qty="${s}">
+          </div>`).join('')}
+      </div>
+      <div class="cardFoot">
+        <button class="addOrderBtn" data-order="${p.id}">Order Mein Add Karein</button>
+        <div class="totalPill" data-total="${p.id}"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+document.getElementById('grid').addEventListener('input', (e)=>{
+  if(e.target.matches('input[data-qty]')){
+    const card = e.target.closest('.card');
+    const tag = e.target.closest('.sizeTag');
+    const val = parseInt(e.target.value)||0;
+    tag.classList.toggle('active', val>0);
+    let total = 0;
+    card.querySelectorAll('input[data-qty]').forEach(inp=> total += (parseInt(inp.value)||0));
+    card.querySelector('[data-total]').textContent = total>0 ? total+' pcs selected' : '';
+  }
+});
+
+document.getElementById('grid').addEventListener('click', async (e)=>{
+  if(e.target.matches('[data-del]')){
+    const id = e.target.getAttribute('data-del');
+    if(!confirm('Ye sample catalog se hata dein?')) return;
+    await storageDelete('product:'+id);
+    products = products.filter(p=>p.id!==id);
+    populateFilters();
+    renderCatalog();
+  }
+  if(e.target.matches('[data-edit]')){
+    const id = e.target.getAttribute('data-edit');
+    const p = products.find(x=>x.id===id);
+    if(p) openEditForm(p);
+  }
+  if(e.target.matches('[data-order]')){
+    const id = e.target.getAttribute('data-order');
+    const card = e.target.closest('.card');
+    const sizes = {};
+    let any=false;
+    card.querySelectorAll('input[data-qty]').forEach(inp=>{
+      const v = parseInt(inp.value)||0;
+      if(v>0){ sizes[inp.getAttribute('data-qty')] = v; any=true; }
+    });
+    if(!any){ flashBtn(e.target,'Pehle size mein quantity daalein'); return; }
+    const p = products.find(x=>x.id===id);
+    order.push({ lineId:'l_'+Date.now(), productId:p.id, code:p.code, color:p.color, brand:p.brand, category:p.category, wsp:p.wsp||0, photo:p.photo, sizes });
+    await storageSet('current_order', order);
+    // reset inputs
+    card.querySelectorAll('input[data-qty]').forEach(inp=>{ inp.value=''; });
+    card.querySelectorAll('.sizeTag').forEach(t=>t.classList.remove('active'));
+    card.querySelector('[data-total]').textContent='';
+    renderOrder();
+    flashBtn(e.target,'✓ Order Mein Add Ho Gaya', true);
+    openDrawerBriefFlash();
+  }
+});
+
+function flashBtn(btn, msg, ok){
+  const original = btn.textContent;
+  btn.textContent = msg;
+  btn.style.background = ok ? '#2f6349' : '#a34a3d';
+  setTimeout(()=>{ btn.textContent = original; btn.style.background=''; }, 1100);
+}
+function openDrawerBriefFlash(){
+  const cb = document.getElementById('cartBtn');
+  cb.style.transform='scale(1.08)';
+  setTimeout(()=> cb.style.transform='', 180);
+}
+
+// ---------- Order Drawer ----------
+function renderOrder(){
+  document.getElementById('cartCount').textContent = order.length;
+  const list = document.getElementById('orderList');
+  if(order.length===0){
+    list.innerHTML = `<div id="noOrder">Order abhi khaali hai.<br>Catalog se sample select karke "Order Mein Add Karein" dabayein.</div>`;
+  } else {
+    list.innerHTML = order.map(line=>{
+      const sizeStr = SIZES.filter(s=>line.sizes[s]).map(s=>`${s}=${line.sizes[s]}`).join(', ');
+      const pcs = Object.values(line.sizes).reduce((a,b)=>a+b,0);
+      const amt = (line.wsp||0) * pcs;
+      return `<div class="orderLine" data-line="${line.lineId}">
+        <img src="${line.photo}">
+        <div class="info">
+          <div class="top">${escapeHtml(line.code)} ${line.color?('· '+escapeHtml(line.color)):''}</div>
+          <div class="sizes">${sizeStr}</div>
+          ${line.wsp ? `<div class="amt">₹${line.wsp} × ${pcs} = ₹${amt}</div>` : ''}
+        </div>
+        <button class="rmBtn" data-rm="${line.lineId}">✕</button>
+      </div>`;
+    }).join('');
+  }
+  const totalPieces = order.reduce((sum,l)=> sum + Object.values(l.sizes).reduce((a,b)=>a+b,0), 0);
+  const totalAmount = order.reduce((sum,l)=> sum + (l.wsp||0) * Object.values(l.sizes).reduce((a,b)=>a+b,0), 0);
+  document.getElementById('totalLines').textContent = order.length + ' item' + (order.length!==1?'s':'');
+  document.getElementById('totalPieces').textContent = totalPieces + ' pcs' + (totalAmount>0 ? ' · ₹'+totalAmount : '');
+}
+
+document.getElementById('orderList').addEventListener('click', async (e)=>{
+  if(e.target.matches('[data-rm]')){
+    const id = e.target.getAttribute('data-rm');
+    order = order.filter(l=>l.lineId!==id);
+    await storageSet('current_order', order);
+    renderOrder();
+  }
+});
+
+document.getElementById('cartBtn').addEventListener('click', ()=>{
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('overlay').classList.add('show');
+});
+document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+document.getElementById('overlay').addEventListener('click', closeDrawer);
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+document.getElementById('shopName').addEventListener('change', (e)=>{
+  storageSet('shop_name', e.target.value);
+  populatePartySelect();
+});
+
+// ---------- Saved Party Names ----------
+function populatePartySelect(){
+  const sel = document.getElementById('partySelect');
+  const current = document.getElementById('shopName').value.trim();
+  const sorted = [...new Set(partyNames.filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = '<option value="">Saved Party select karein</option>' +
+    sorted.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  if(sorted.includes(current)) sel.value = current;
+}
+
+document.getElementById('savePartyBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('shopName').value.trim();
+  if(!name){ alert('Pehle Party / Shop ka naam daalein.'); return; }
+  if(!partyNames.includes(name)){
+    partyNames.push(name);
+    await storageSet('party_names', partyNames);
+  }
+  await storageSet('shop_name', name);
+  populatePartySelect();
+  document.getElementById('partySelect').value = name;
+  alert('Party name save ho gaya.');
+});
+
+document.getElementById('partySelect').addEventListener('change', (e)=>{
+  if(e.target.value){
+    document.getElementById('shopName').value = e.target.value;
+    storageSet('shop_name', e.target.value);
+  }
+});
+
+
+document.getElementById('clearBtn').addEventListener('click', async ()=>{
+  if(order.length===0) return;
+  if(!confirm('Poora order clear kar dein?')) return;
+  order = [];
+  await storageSet('current_order', order);
+  renderOrder();
+});
+
+// ---------- Group sizes by qty for compact text (e.g. S,M,L,XXL=5) ----------
+function groupSizesText(sizes){
+  const byQty = {};
+  SIZES.forEach(s=>{
+    if(sizes[s]){
+      byQty[sizes[s]] = byQty[sizes[s]] || [];
+      byQty[sizes[s]].push(s);
+    }
+  });
+  return Object.keys(byQty).map(Number).sort((a,b)=>a-b).map(qty=> byQty[qty].join(',')+'='+qty ).join(', ');
+}
+
+function buildOrderText(){
+  const shop = document.getElementById('shopName').value.trim();
+  const dateStr = new Date().toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'});
+  let lines = [];
+  lines.push('*Wholesale Order*' + (shop? ' — '+shop : ''));
+  lines.push(dateStr);
+  lines.push('');
+  order.forEach(l=>{
+    const txt = groupSizesText(l.sizes);
+    const pcs = Object.values(l.sizes).reduce((a,b)=>a+b,0);
+    const priceStr = l.wsp ? ` (₹${l.wsp} × ${pcs} = ₹${l.wsp*pcs})` : '';
+    const tagStr = (l.brand||l.category) ? ` [${[l.brand,l.category].filter(Boolean).join(' / ')}]` : '';
+    lines.push(`${l.code}${l.color? ' '+l.color:''} ${txt}${priceStr}${tagStr}`);
+  });
+  const totalPieces = order.reduce((sum,l)=> sum + Object.values(l.sizes).reduce((a,b)=>a+b,0), 0);
+  const totalAmount = order.reduce((sum,l)=> sum + (l.wsp||0) * Object.values(l.sizes).reduce((a,b)=>a+b,0), 0);
+  lines.push('');
+  lines.push(`Total: ${order.length} item(s), ${totalPieces} pcs` + (totalAmount>0 ? `, ₹${totalAmount}` : ''));
+  return lines.join('\n');
+}
+
+// ---------- Excel Export ----------
+document.getElementById('excelBtn').addEventListener('click', ()=>{
+  if(order.length===0){ alert('Order khaali hai.'); return; }
+  const rows = [];
+  order.forEach(l=>{
+    SIZES.forEach(s=>{
+      if(l.sizes[s]){
+        rows.push({ 'Item No': l.code, 'Colour': l.color||'', 'Brand': l.brand||'', 'Category': l.category||'', 'Size': s, 'Qty': l.sizes[s], 'Rate (WSP)': l.wsp||'', 'Amount': l.wsp ? l.wsp*l.sizes[s] : '' });
+      }
+    });
+  });
+  const totalPieces = order.reduce((sum,l)=> sum + Object.values(l.sizes).reduce((a,b)=>a+b,0), 0);
+  const totalAmount = order.reduce((sum,l)=> sum + (l.wsp||0) * Object.values(l.sizes).reduce((a,b)=>a+b,0), 0);
+  rows.push({});
+  rows.push({ 'Item No':'TOTAL', 'Colour':'', 'Brand':'', 'Category':'', 'Size':'', 'Qty': totalPieces, 'Rate (WSP)':'', 'Amount': totalAmount || '' });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:12},{wch:14},{wch:14},{wch:14},{wch:8},{wch:8},{wch:11},{wch:11}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Order');
+  const shop = document.getElementById('shopName').value.trim();
+  const fname = 'order_' + (shop? shop.replace(/[^a-z0-9]/gi,'_')+'_' : '') + Date.now() + '.xlsx';
+  XLSX.writeFile(wb, fname);
+});
+
+// ---------- WhatsApp Share ----------
+document.getElementById('waBtn').addEventListener('click', ()=>{
+  if(order.length===0){ alert('Order khaali hai.'); return; }
+  const text = buildOrderText();
+  const url = 'https://wa.me/?text=' + encodeURIComponent(text);
+  window.open(url, '_blank');
+});
+
+function escapeHtml(str){
+  return (str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>
